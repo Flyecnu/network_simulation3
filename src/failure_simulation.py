@@ -1,15 +1,32 @@
-# src/failure_simulation.py
-
 import json
 from path_calculator import PathCalculator
 from simulator import NetworkSimulator
 
+def tuple_to_string_key(data):
+    """
+    Recursively convert tuple keys in a dictionary to string keys for JSON serialization.
+    """
+    if isinstance(data, dict):
+        new_data = {}
+        for key, value in data.items():
+            if isinstance(key, tuple):
+                key = str(key)  # Convert tuple to string
+            new_data[key] = tuple_to_string_key(value)
+        return new_data
+    elif isinstance(data, list):
+        return [tuple_to_string_key(item) for item in data]
+    else:
+        return data
+
 def string_key_to_tuple(data):
+    """
+    Recursively convert string keys back to tuple keys for JSON deserialization.
+    """
     if isinstance(data, dict):
         new_data = {}
         for key, value in data.items():
             if isinstance(key, str) and key.startswith('(') and key.endswith(')'):
-                key = eval(key)
+                key = eval(key)  # Convert string back to tuple
             new_data[key] = string_key_to_tuple(value)
         return new_data
     elif isinstance(data, list):
@@ -24,16 +41,21 @@ def load_initial_data(file_name):
     data['paths_in_use'] = string_key_to_tuple(data['paths_in_use'])
     data['backup_paths'] = string_key_to_tuple(data['backup_paths'])
     data['edge_service_matrix'] = string_key_to_tuple(data['edge_service_matrix'])
+    
+    # 使用 get 方法，防止文件中没有 failed_edges 键时报错
+    data['failed_edges'] = [eval(edge) for edge in data.get('failed_edges', [])]  # 将字符串转换回元组
+    data['recovered_edges'] = [eval(edge) for edge in data.get('recovered_edges', [])]  # 同样转换
 
     return data
 
+
 def save_simulation_data(path_calculator, failed_edges, recovered_edges, file_name):
     data = {
-        'paths_in_use': string_key_to_tuple(path_calculator.paths_in_use),
-        'backup_paths': string_key_to_tuple(path_calculator.backup_paths),
-        'edge_service_matrix': string_key_to_tuple(path_calculator.edge_service_matrix),
-        'failed_edges': failed_edges,
-        'recovered_edges': recovered_edges
+        'paths_in_use': tuple_to_string_key(path_calculator.paths_in_use),
+        'backup_paths': tuple_to_string_key(path_calculator.backup_paths),
+        'edge_service_matrix': tuple_to_string_key(path_calculator.edge_service_matrix),
+        'failed_edges': [str(edge) for edge in failed_edges],  # 将元组转换为字符串
+        'recovered_edges': [str(edge) for edge in recovered_edges]  # 同样转换
     }
     with open(file_name, 'w') as file:
         json.dump(data, file, indent=4)
@@ -50,8 +72,8 @@ def failure_simulation():
     
     simulator = NetworkSimulator(path_calculator)
 
-    failed_edges = []
-    recovered_edges = []
+    failed_edges = data.get('failed_edges', [])
+    recovered_edges = data.get('recovered_edges', [])
 
     # 用户输入模拟
     while True:
