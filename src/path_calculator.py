@@ -109,3 +109,12 @@ class PathCalculator:
 
         # 重新计算备用路径，确保备用路径矩阵没有故障的边
         self.recompute_backup_paths()
+
+    def build_edge_service_matrix(self):
+        """构建边和经过它的业务的映射关系"""
+        for service_index, data in self.paths_in_use.items():
+            edges = data['edges']
+            for edge in edges:
+                if edge not in self.edge_service_matrix:
+                    self.edge_service_matrix[edge] = []
+                self.edge_service_matrix[edge].append(service_index)
