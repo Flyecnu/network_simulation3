@@ -98,64 +98,102 @@ class PathCalculator:
         """
         处理链路故障，根据策略进行路径切换。
         """
-        affected_services = self.edge_service_matrix.get(edge, [])
-        for service_index in affected_services:
+        # Step 1: 查找当前路径经过故障边的服务
+        affected_services_current = self.edge_service_matrix.get(edge, [])
+
+        # Step 2: 查找备用路径中包含故障边的服务
+        affected_services_backup = []
+        for service_index, backup_paths in self.backup_paths.items():
+            if edge in backup_paths:
+                affected_services_backup.append(service_index)
+
+        # Step 3: 更新当前路径经过故障边的服务
+        for service_index in affected_services_current:
             print(f"Service {service_index} affected by edge failure: {edge}")
+            # 按优先级顺序处理路径切换逻辑（备用路径 -> 局部路径重计算 -> 缓存路径 -> Dijkstra）
+            self.update_service_path(service_index, edge)
 
-            # 优先使用已计算好的备用路径
-            backup_path_info = self.backup_paths.get(service_index, {}).get(edge)
-            if backup_path_info:
-                print(f"Switching service {service_index} to backup path for edge {edge}")
-                
-                # 将旧路径加入缓存池
-                old_path = self.paths_in_use[service_index]
-                self.add_to_cache(service_index, old_path)
+        # Step 4: 删除包含故障边的备用路径，并按照路径更新策略为受影响的服务重新生成备用路径
+        for service_index in affected_services_backup:
+            if edge in self.backup_paths[service_index]:
+                print(f"Service {service_index}'s backup path contains the failed edge: {edge}")
+                # 删除失效的备用路径
+                del self.backup_paths[service_index][edge]
+                # 按照路径更新策略重新生成备用路径
+                self.update_service_backup_path(service_index)
 
-                # 切换到新的备用路径
-                self.paths_in_use[service_index] = backup_path_info
-                continue
+    def update_service_backup_path(self, service_index):
+        """
+        按照策略更新服务的备用路径（局部路径重计算、缓存路径、Dijkstra），并将旧的备用路径加入缓存池。
+        """
+        src, snk = self.paths_in_use[service_index]['path'][0], self.paths_in_use[service_index]['path'][-1]
 
+        # 将失效的备用路径加入缓存池（如果存在旧的备用路径）
+        old_backup_path = self.backup_paths.get(service_index, {}).get((src, snk))
+        if old_backup_path:
+            print(f"Adding old backup path of service {service_index} to cache.")
+            self.add_to_cache(service_index, old_backup_path)
+
+        # Step 1: 局部路径重计算
+        local_path = self.local_recompute_path(src, snk)
+        if local_path:
+            print(f"Recomputed backup path for service {service_index} using local search.")
+            self.backup_paths[service_index][(src, snk)] = local_path
+            return
+
+        # Step 2: 检查缓存池中的备用路径
+        cached_path = self.get_from_cache(service_index, (src, snk))
+        if cached_path:
+            print(f"Recomputed backup path for service {service_index} using cached path.")
+            self.backup_paths[service_index][(src, snk)] = cached_path
+            return
+
+        # Step 3: 使用 Dijkstra 重新计算备用路径
+        try:
+            backup_path = nx.shortest_path(self.G, source=src, target=snk, weight='weight')
+            backup_edges = [(backup_path[i], backup_path[i + 1]) for i in range(len(backup_path) - 1)]
+            self.backup_paths[service_index][(src, snk)] = {'path': backup_path, 'edges': backup_edges}
+            print(f"Recomputed backup path for service {service_index} using Dijkstra.")
+        except nx.NetworkXNoPath:
+            print(f"Failed to find a new backup path for service {service_index} after edge failure.")
+
+    def update_service_path(self, service_index, edge):
+        """
+        更新服务的路径，优先使用备用路径，如果没有则重新计算路径，并将旧的路径加入缓存池。
+        """
+        # 将当前路径加入缓存池
+        old_path = self.paths_in_use.get(service_index)
+        if old_path:
+            print(f"Adding old path of service {service_index} to cache.")
+            self.add_to_cache(service_index, old_path)
+
+        # 优先使用已计算好的备用路径
+        backup_path_info = self.backup_paths.get(service_index, {}).get(edge)
+        if backup_path_info:
+            print(f"Switching service {service_index} to backup path for edge {edge}")
+            self.paths_in_use[service_index] = backup_path_info
+        else:
             # 尝试局部路径重计算
             src, snk = self.paths_in_use[service_index]['path'][0], self.paths_in_use[service_index]['path'][-1]
             local_path = self.local_recompute_path(src, snk)
             if local_path:
                 print(f"Switching service {service_index} to locally recomputed path.")
-                
-                # 将旧路径加入缓存池
-                old_path = self.paths_in_use[service_index]
-                self.add_to_cache(service_index, old_path)
-
-                # 切换到新路径
                 self.paths_in_use[service_index] = local_path
-                continue
-
-            # 检查缓存池中的路径
-            cached_path = self.get_from_cache(service_index, edge)
-            if cached_path:
-                print(f"Switching service {service_index} to cached path.")
-                
-                # 将旧路径加入缓存池
-                old_path = self.paths_in_use[service_index]
-                self.add_to_cache(service_index, old_path)
-
-                # 切换到缓存路径
-                self.paths_in_use[service_index] = cached_path
-                continue
-
-            # 使用 Dijkstra 重新计算路径
-            try:
-                new_path = nx.shortest_path(self.G, source=src, target=snk, weight='weight')
-                new_edges = [(new_path[i], new_path[i + 1]) for i in range(len(new_path) - 1)]
-                
-                # 将旧路径加入缓存池
-                old_path = self.paths_in_use[service_index]
-                self.add_to_cache(service_index, old_path)
-
-                # 切换到新路径
-                self.paths_in_use[service_index] = {'path': new_path, 'edges': new_edges}
-                print(f"Switching service {service_index} to newly computed path using Dijkstra.")
-            except nx.NetworkXNoPath:
-                print(f"Failed to find any path for service {service_index} after edge {edge} failed.")
+            else:
+                # 检查缓存池中的路径
+                cached_path = self.get_from_cache(service_index, edge)
+                if cached_path:
+                    print(f"Switching service {service_index} to cached path.")
+                    self.paths_in_use[service_index] = cached_path
+                else:
+                    # 使用 Dijkstra 重新计算路径
+                    try:
+                        new_path = nx.shortest_path(self.G, source=src, target=snk, weight='weight')
+                        new_edges = [(new_path[i], new_path[i + 1]) for i in range(len(new_path) - 1)]
+                        self.paths_in_use[service_index] = {'path': new_path, 'edges': new_edges}
+                        print(f"Switching service {service_index} to newly computed path using Dijkstra.")
+                    except nx.NetworkXNoPath:
+                        print(f"Failed to find any path for service {service_index} after edge {edge} failed.")
 
     def save_to_csv(self, paths_csv, backup_csv):
         """保存 paths_in_use 和 backup_paths 到 CSV 文件"""
