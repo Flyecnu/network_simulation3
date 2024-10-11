@@ -1,6 +1,7 @@
 # src/initial_path_calculation.py
 
 import json
+import csv
 from data_handler import load_nodes, load_oms_links, load_relays, load_services
 from path_calculator import PathCalculator
 
@@ -26,6 +27,23 @@ def save_initial_data(path_calculator, file_name):
     with open(file_name, 'w') as file:
         json.dump(data, file, indent=4)
 
+def save_to_csv(path_calculator, paths_csv, backup_csv):
+    """保存 paths_in_use 和 backup_paths 到 CSV 文件"""
+    # 保存 paths_in_use 到 CSV 文件
+    with open(paths_csv, 'w', newline='') as csv_file:
+        writer = csv.writer(csv_file)
+        writer.writerow(['Service Index', 'Path', 'Edges'])
+        for service_index, data in path_calculator.paths_in_use.items():
+            writer.writerow([service_index, data['path'], data['edges']])
+
+    # 保存 backup_paths 到 CSV 文件
+    with open(backup_csv, 'w', newline='') as csv_file:
+        writer = csv.writer(csv_file)
+        writer.writerow(['Service Index', 'Failed Edge', 'Backup Path', 'Backup Edges'])
+        for service_index, edge_paths in path_calculator.backup_paths.items():
+            for edge, path_info in edge_paths.items():
+                writer.writerow([service_index, edge, path_info['path'], path_info['edges']])
+
 def initial_path_calculation():
     # 加载数据
     nodes = load_nodes('data/node.csv')
@@ -40,8 +58,12 @@ def initial_path_calculation():
     # 计算备用路径
     path_calculator.recompute_backup_paths()
 
-    # 保存初始路径计算结果
+    # 保存初始路径计算结果到 JSON 文件
     save_initial_data(path_calculator, 'results/initial_paths_data.json')
+
+    # 保存初始路径计算结果到 CSV 文件
+    save_to_csv(path_calculator, 'results/paths.csv', 'results/backup_paths.csv')
+
     print("Initial path calculation complete and data saved.")
 
 if __name__ == "__main__":

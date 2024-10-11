@@ -1,4 +1,5 @@
 import json
+import csv
 from path_calculator import PathCalculator
 from simulator import NetworkSimulator
 
@@ -60,6 +61,30 @@ def save_simulation_data(path_calculator, failed_edges, recovered_edges, file_na
     with open(file_name, 'w') as file:
         json.dump(data, file, indent=4)
 
+def save_simulation_to_csv(path_calculator, failed_edges, recovered_edges, paths_csv, backup_csv, failed_csv):
+    """保存模拟状态到 CSV 文件"""
+    # 保存 paths_in_use 到 CSV 文件
+    with open(paths_csv, 'w', newline='') as csv_file:
+        writer = csv.writer(csv_file)
+        writer.writerow(['Service Index', 'Path', 'Edges'])
+        for service_index, data in path_calculator.paths_in_use.items():
+            writer.writerow([service_index, data['path'], data['edges']])
+
+    # 保存 backup_paths 到 CSV 文件
+    with open(backup_csv, 'w', newline='') as csv_file:
+        writer = csv.writer(csv_file)
+        writer.writerow(['Service Index', 'Failed Edge', 'Backup Path', 'Backup Edges'])
+        for service_index, edge_paths in path_calculator.backup_paths.items():
+            for edge, path_info in edge_paths.items():
+                writer.writerow([service_index, edge, path_info['path'], path_info['edges']])
+
+    # 保存失败和恢复的边信息到 CSV 文件
+    with open(failed_csv, 'w', newline='') as csv_file:
+        writer = csv.writer(csv_file)
+        writer.writerow(['Failed Edges', 'Recovered Edges'])
+        writer.writerow([failed_edges, recovered_edges])
+
+
 def failure_simulation():
     # 加载初始路径数据
     data = load_initial_data('results/initial_paths_data.json')
@@ -108,8 +133,15 @@ def failure_simulation():
         elif action == 'q':
             break
 
-        # 每次保存状态
+        # 每次保存状态到 JSON 文件
         save_simulation_data(path_calculator, failed_edges, recovered_edges, 'results/simulation_state.json')
+        
+        # 保存状态到 CSV 文件
+        save_simulation_to_csv(path_calculator, failed_edges, recovered_edges,
+                               paths_csv='results/simulation_paths.csv',
+                               backup_csv='results/simulation_backup_paths.csv',
+                               failed_csv='results/simulation_failed_edges.csv')
+
         print("Simulation state saved.")
 
 

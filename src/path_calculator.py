@@ -1,6 +1,7 @@
 # src/path_calculator.py
 
 import networkx as nx
+import csv
 
 class PathCalculator:
     def __init__(self, oms_links):
@@ -15,7 +16,7 @@ class PathCalculator:
         for link in oms_links:
             edge = (min(link.oms_id, link.remote_oms_id), max(link.oms_id, link.remote_oms_id))
             self.G.add_edge(link.src, link.snk, weight=link.cost, distance=link.distance)
-            
+
     def build_edge_service_matrix(self):
         """构建边和经过它的业务的映射关系"""
         for service_index, data in self.paths_in_use.items():
@@ -24,7 +25,7 @@ class PathCalculator:
                 if edge not in self.edge_service_matrix:
                     self.edge_service_matrix[edge] = []
                 self.edge_service_matrix[edge].append(service_index)
-                
+
     def calculate_paths(self, services):
         for service_index, service in enumerate(services):
             try:
@@ -131,3 +132,20 @@ class PathCalculator:
                 print(f"Switching service {service_index} to newly computed path using Dijkstra.")
             except nx.NetworkXNoPath:
                 print(f"Failed to find any path for service {service_index} after edge {edge} failed.")
+
+    def save_to_csv(self, paths_csv, backup_csv):
+        """保存 paths_in_use 和 backup_paths 到 CSV 文件"""
+        # 保存 paths_in_use 到 CSV 文件
+        with open(paths_csv, 'w', newline='') as csv_file:
+            writer = csv.writer(csv_file)
+            writer.writerow(['Service Index', 'Path', 'Edges'])
+            for service_index, data in self.paths_in_use.items():
+                writer.writerow([service_index, data['path'], data['edges']])
+
+        # 保存 backup_paths 到 CSV 文件
+        with open(backup_csv, 'w', newline='') as csv_file:
+            writer = csv.writer(csv_file)
+            writer.writerow(['Service Index', 'Failed Edge', 'Backup Path', 'Backup Edges'])
+            for service_index, edge_paths in self.backup_paths.items():
+                for edge, path_info in edge_paths.items():
+                    writer.writerow([service_index, edge, path_info['path'], path_info['edges']])
