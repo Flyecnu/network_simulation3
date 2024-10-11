@@ -59,7 +59,6 @@ def save_simulation_data(path_calculator, failed_edges, recovered_edges, file_na
     }
     with open(file_name, 'w') as file:
         json.dump(data, file, indent=4)
-
 def failure_simulation():
     # 加载初始路径数据
     data = load_initial_data('results/initial_paths_data.json')
@@ -78,33 +77,41 @@ def failure_simulation():
     # 用户输入模拟
     while True:
         action = input("Enter 'f' to simulate failure, 'r' to recover a failed edge, or 'q' to quit: ").strip().lower()
+        
         if action == 'f':
             edge = input("Enter the edge to fail (format: src,snk): ").strip()
             src, snk = map(int, edge.split(','))
             edge = (min(src, snk), max(src, snk))
-            if edge not in failed_edges:
+            
+            # 检查该边是否存在于当前图中，并且不在已故障的边列表中
+            if edge in path_calculator.G.edges and edge not in failed_edges:
                 simulator.simulate_failure(edge)
                 failed_edges.append(edge)
                 print(f"Simulated failure on edge: {edge}")
             else:
-                print(f"Edge {edge} has already failed.")
+                print(f"Edge {edge} does not exist or has already failed.")
+        
         elif action == 'r':
             edge = input("Enter the edge to recover (format: src,snk): ").strip()
             src, snk = map(int, edge.split(','))
             edge = (min(src, snk), max(src, snk))
+            
+            # 只有在已故障的边中，才能进行恢复
             if edge in failed_edges:
-                simulator.simulate_recovery(edge)
                 failed_edges.remove(edge)
                 recovered_edges.append(edge)
                 print(f"Simulated recovery on edge: {edge}")
             else:
                 print(f"Edge {edge} is not currently in the failed state.")
+        
         elif action == 'q':
             break
 
         # 每次保存状态
         save_simulation_data(path_calculator, failed_edges, recovered_edges, 'results/simulation_state.json')
         print("Simulation state saved.")
+
+
 
 if __name__ == "__main__":
     failure_simulation()
