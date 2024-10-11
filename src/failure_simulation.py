@@ -1,22 +1,8 @@
-# src/main.py
+# src/failure_simulation.py
 
 import json
-from data_handler import load_nodes, load_oms_links, load_relays, load_services
 from path_calculator import PathCalculator
 from simulator import NetworkSimulator
-
-def tuple_to_string_key(data):
-    if isinstance(data, dict):
-        new_data = {}
-        for key, value in data.items():
-            if isinstance(key, tuple):
-                key = str(key)
-            new_data[key] = tuple_to_string_key(value)
-        return new_data
-    elif isinstance(data, list):
-        return [tuple_to_string_key(item) for item in data]
-    else:
-        return data
 
 def string_key_to_tuple(data):
     if isinstance(data, dict):
@@ -31,7 +17,7 @@ def string_key_to_tuple(data):
     else:
         return data
 
-def load_init_data(file_name):
+def load_initial_data(file_name):
     with open(file_name, 'r') as file:
         data = json.load(file)
 
@@ -43,25 +29,25 @@ def load_init_data(file_name):
 
 def save_simulation_data(path_calculator, failed_edges, recovered_edges, file_name):
     data = {
-        'paths_in_use': tuple_to_string_key(path_calculator.paths_in_use),
-        'backup_paths': tuple_to_string_key(path_calculator.backup_paths),
-        'edge_service_matrix': tuple_to_string_key(path_calculator.edge_service_matrix),
+        'paths_in_use': string_key_to_tuple(path_calculator.paths_in_use),
+        'backup_paths': string_key_to_tuple(path_calculator.backup_paths),
+        'edge_service_matrix': string_key_to_tuple(path_calculator.edge_service_matrix),
         'failed_edges': failed_edges,
         'recovered_edges': recovered_edges
     }
     with open(file_name, 'w') as file:
         json.dump(data, file, indent=4)
 
-def main():
-    nodes = load_nodes('data/node.csv')
-    oms_links = load_oms_links('data/oms.csv')
-    relays = load_relays('data/relay.csv')
-    services = load_services('data/service.csv')
-
-    path_calculator = PathCalculator(oms_links)
-    path_calculator.calculate_paths(services)
-
-    # 进行故障模拟
+def failure_simulation():
+    # 加载初始路径数据
+    data = load_initial_data('results/initial_paths_data.json')
+    
+    # 初始化 PathCalculator 和 NetworkSimulator
+    path_calculator = PathCalculator([])
+    path_calculator.paths_in_use = data['paths_in_use']
+    path_calculator.backup_paths = data['backup_paths']
+    path_calculator.edge_service_matrix = data['edge_service_matrix']
+    
     simulator = NetworkSimulator(path_calculator)
 
     failed_edges = []
@@ -99,4 +85,4 @@ def main():
         print("Simulation state saved.")
 
 if __name__ == "__main__":
-    main()
+    failure_simulation()

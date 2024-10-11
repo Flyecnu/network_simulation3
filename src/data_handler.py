@@ -1,6 +1,4 @@
 # src/data_handler.py
-from models import Node, OmsLink, Relay, Service
-# src/data_handler.py
 
 import pandas as pd
 from models import Node, OmsLink, Relay, Service
