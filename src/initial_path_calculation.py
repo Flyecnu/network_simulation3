@@ -37,6 +37,9 @@ def initial_path_calculation():
     path_calculator = PathCalculator(oms_links)
     path_calculator.calculate_paths(services)
 
+    # 计算备用路径
+    path_calculator.recompute_backup_paths()
+
     # 保存初始路径计算结果
     save_initial_data(path_calculator, 'results/initial_paths_data.json')
     print("Initial path calculation complete and data saved.")

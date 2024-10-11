@@ -59,6 +59,7 @@ def save_simulation_data(path_calculator, failed_edges, recovered_edges, file_na
     }
     with open(file_name, 'w') as file:
         json.dump(data, file, indent=4)
+
 def failure_simulation():
     # 加载初始路径数据
     data = load_initial_data('results/initial_paths_data.json')
@@ -110,7 +111,6 @@ def failure_simulation():
         # 每次保存状态
         save_simulation_data(path_calculator, failed_edges, recovered_edges, 'results/simulation_state.json')
         print("Simulation state saved.")
-
 
 
 if __name__ == "__main__":
