@@ -106,6 +106,12 @@ class PathCalculator:
             backup_path_info = self.backup_paths.get(service_index, {}).get(edge)
             if backup_path_info:
                 print(f"Switching service {service_index} to backup path for edge {edge}")
+                
+                # 将旧路径加入缓存池
+                old_path = self.paths_in_use[service_index]
+                self.add_to_cache(service_index, old_path)
+
+                # 切换到新的备用路径
                 self.paths_in_use[service_index] = backup_path_info
                 continue
 
@@ -114,6 +120,12 @@ class PathCalculator:
             local_path = self.local_recompute_path(src, snk)
             if local_path:
                 print(f"Switching service {service_index} to locally recomputed path.")
+                
+                # 将旧路径加入缓存池
+                old_path = self.paths_in_use[service_index]
+                self.add_to_cache(service_index, old_path)
+
+                # 切换到新路径
                 self.paths_in_use[service_index] = local_path
                 continue
 
@@ -121,6 +133,12 @@ class PathCalculator:
             cached_path = self.get_from_cache(service_index, edge)
             if cached_path:
                 print(f"Switching service {service_index} to cached path.")
+                
+                # 将旧路径加入缓存池
+                old_path = self.paths_in_use[service_index]
+                self.add_to_cache(service_index, old_path)
+
+                # 切换到缓存路径
                 self.paths_in_use[service_index] = cached_path
                 continue
 
@@ -128,6 +146,12 @@ class PathCalculator:
             try:
                 new_path = nx.shortest_path(self.G, source=src, target=snk, weight='weight')
                 new_edges = [(new_path[i], new_path[i + 1]) for i in range(len(new_path) - 1)]
+                
+                # 将旧路径加入缓存池
+                old_path = self.paths_in_use[service_index]
+                self.add_to_cache(service_index, old_path)
+
+                # 切换到新路径
                 self.paths_in_use[service_index] = {'path': new_path, 'edges': new_edges}
                 print(f"Switching service {service_index} to newly computed path using Dijkstra.")
             except nx.NetworkXNoPath:
