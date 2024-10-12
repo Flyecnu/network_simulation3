@@ -2,7 +2,7 @@ import json
 import csv
 from path_calculator import PathCalculator
 from simulator import NetworkSimulator
-
+import pickle
 def tuple_to_string_key(data):
     """
     Recursively convert tuple keys in a dictionary to string keys for JSON serialization.
@@ -89,16 +89,29 @@ def failure_simulation():
     # 加载初始路径数据
     data = load_initial_data('results/initial_paths_data.json')
     
-    # 初始化 PathCalculator 和 NetworkSimulator
+    # 加载图的结构
+    with open('results/graph_structure.pkl', 'rb') as f:
+        G = pickle.load(f)
+    
+    # 初始化 PathCalculator 并设置图
     path_calculator = PathCalculator([])
+    path_calculator.G = G  # 使用已保存的图
     path_calculator.paths_in_use = data['paths_in_use']
     path_calculator.backup_paths = data['backup_paths']
     path_calculator.edge_service_matrix = data['edge_service_matrix']
+    
+    # with open('1.txt', 'a') as file:
+    #     file.write(f"Edge Service Matrix: {path_calculator.edge_service_matrix}")
+
     
     simulator = NetworkSimulator(path_calculator)
 
     failed_edges = data.get('failed_edges', [])
     recovered_edges = data.get('recovered_edges', [])
+
+    with open('results/current_edges.txt', 'w') as file:
+        file.write(f"Current edges in graph: {list(path_calculator.G.edges)}\n")
+        
 
     # 用户输入模拟
     while True:
@@ -108,6 +121,8 @@ def failure_simulation():
             edge = input("Enter the edge to fail (format: src,snk): ").strip()
             src, snk = map(int, edge.split(','))
             edge = (min(src, snk), max(src, snk))
+            
+            print(f"Attempting to fail edge: {edge}")
             
             # 检查该边是否存在于当前图中，并且不在已故障的边列表中
             if edge in path_calculator.G.edges and edge not in failed_edges:
@@ -122,7 +137,8 @@ def failure_simulation():
             src, snk = map(int, edge.split(','))
             edge = (min(src, snk), max(src, snk))
             
-            # 只有在已故障的边中，才能进行恢复
+            print(f"Attempting to recover edge: {edge}")
+            
             if edge in failed_edges:
                 failed_edges.remove(edge)
                 recovered_edges.append(edge)
@@ -133,10 +149,7 @@ def failure_simulation():
         elif action == 'q':
             break
 
-        # 每次保存状态到 JSON 文件
         save_simulation_data(path_calculator, failed_edges, recovered_edges, 'results/simulation_state.json')
-        
-        # 保存状态到 CSV 文件
         save_simulation_to_csv(path_calculator, failed_edges, recovered_edges,
                                paths_csv='results/simulation_paths.csv',
                                backup_csv='results/simulation_backup_paths.csv',

@@ -1,5 +1,5 @@
 # src/initial_path_calculation.py
-
+import pickle
 import json
 import csv
 from data_handler import load_nodes, load_oms_links, load_relays, load_services
@@ -63,7 +63,12 @@ def initial_path_calculation():
 
     # 保存初始路径计算结果到 CSV 文件
     save_to_csv(path_calculator, 'results/paths.csv', 'results/backup_paths.csv')
-
+    
+    # 保存图的结构到 pickle 文件
+    with open('results/graph_structure.pkl', 'wb') as f:
+        pickle.dump(path_calculator.G, f)
+        
+        
     print("Initial path calculation complete and data saved.")
 
 if __name__ == "__main__":

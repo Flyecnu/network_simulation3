@@ -2,6 +2,7 @@
 
 import networkx as nx
 import csv
+import time
 
 class PathCalculator:
     def __init__(self, oms_links):
@@ -14,17 +15,23 @@ class PathCalculator:
 
     def initialize_graph(self, oms_links):
         for link in oms_links:
-            edge = (min(link.oms_id, link.remote_oms_id), max(link.oms_id, link.remote_oms_id))
-            self.G.add_edge(link.src, link.snk, weight=link.cost, distance=link.distance)
+            # 直接使用 src 和 snk 作为图的边
+            edge = (min(link.src, link.snk), max(link.src, link.snk))  # 规范化边的顺序
+            self.G.add_edge(edge[0], edge[1], weight=link.cost, distance=link.distance)
+
 
     def build_edge_service_matrix(self):
         """构建边和经过它的业务的映射关系"""
         for service_index, data in self.paths_in_use.items():
             edges = data['edges']
             for edge in edges:
+                # 规范化边的顺序为 (min, max)
+                edge = (min(edge[0], edge[1]), max(edge[0], edge[1]))
+                
                 if edge not in self.edge_service_matrix:
                     self.edge_service_matrix[edge] = []
                 self.edge_service_matrix[edge].append(service_index)
+
 
     def calculate_paths(self, services):
         for service_index, service in enumerate(services):
@@ -49,6 +56,8 @@ class PathCalculator:
         except nx.NetworkXNoPath:
             print(f"No local path found from {src} to {snk}")
             return None
+
+
 
     def add_to_cache(self, service_index, path_info):
         """将未使用的路径添加到缓存池中"""
@@ -94,12 +103,21 @@ class PathCalculator:
         for service_index in self.paths_in_use.keys():
             self.recompute_backup_paths_for_service(service_index)
 
-    def handle_failure(self, edge):
+    def handle_failure(self, edge, log_file='simulation_log.txt'):
         """
-        处理链路故障，根据策略进行路径切换。
+        处理链路故障，根据策略进行路径切换，并记录更新的路径数和时间。
         """
+        # 记录开始时间
+        start_time = time.time()
+        edge = (min(edge[0], edge[1]), max(edge[0], edge[1]))
+        # edge = (max(edge[0], edge[1]), min(edge[0], edge[1]))
+        
+        with open('1.txt', 'a') as file:
+            file.write(f"Edge Service Matrix: {self.edge_service_matrix}")
+
         # Step 1: 查找当前路径经过故障边的服务
         affected_services_current = self.edge_service_matrix.get(edge, [])
+        print(f"Affected services for edge {edge}: {affected_services_current}")
 
         # Step 2: 查找备用路径中包含故障边的服务
         affected_services_backup = []
@@ -107,11 +125,14 @@ class PathCalculator:
             if edge in backup_paths:
                 affected_services_backup.append(service_index)
 
+        updated_paths_count = 0  # 用于记录更新的路径数量
+
         # Step 3: 更新当前路径经过故障边的服务
         for service_index in affected_services_current:
             print(f"Service {service_index} affected by edge failure: {edge}")
             # 按优先级顺序处理路径切换逻辑（备用路径 -> 局部路径重计算 -> 缓存路径 -> Dijkstra）
-            self.update_service_path(service_index, edge)
+            if self.update_service_path(service_index, edge):
+                updated_paths_count += 1  # 记录成功更新的路径
 
         # Step 4: 删除包含故障边的备用路径，并按照路径更新策略为受影响的服务重新生成备用路径
         for service_index in affected_services_backup:
@@ -120,7 +141,18 @@ class PathCalculator:
                 # 删除失效的备用路径
                 del self.backup_paths[service_index][edge]
                 # 按照路径更新策略重新生成备用路径
-                self.update_service_backup_path(service_index)
+                if self.update_service_backup_path(service_index):
+                    updated_paths_count += 1  # 记录成功更新的备用路径
+
+        # 记录结束时间
+        end_time = time.time()
+        elapsed_time = end_time - start_time
+
+        # 将更新的数量和时间记录写入文件
+        with open(log_file, 'a') as log:
+            log.write(f"Edge {edge} failure processed.\n")
+            log.write(f"Updated paths: {updated_paths_count}\n")
+            log.write(f"Time taken: {elapsed_time:.4f} seconds\n\n")
 
     def update_service_backup_path(self, service_index):
         """
