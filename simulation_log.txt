@@ -6,3 +6,7 @@ Edge (811, 812) failure processed.
 Updated paths: 0
 Time taken: 0.0370 seconds
 
+Edge (811, 812) failure processed.
+Updated paths: 40
+Time taken: 0.1374 seconds
+
