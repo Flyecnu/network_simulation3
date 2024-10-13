@@ -38,7 +38,8 @@ class PathCalculator:
         for service_index, service in enumerate(services):
             try:
                 path = nx.shortest_path(self.G, source=service.src, target=service.snk, weight='weight')
-                edges = [(path[i], path[i + 1]) for i in range(len(path) - 1)]
+                # edges = [(path[i], path[i + 1]) for i in range(len(path) - 1)]
+                edges = [(min(path[i], path[i + 1]), max(path[i], path[i + 1])) for i in range(len(path) - 1)]
                 self.record_service_path(service_index, path, edges)
             except nx.NetworkXNoPath:
                 print(f"No available path from {service.src} to {service.snk}")
@@ -52,7 +53,8 @@ class PathCalculator:
         try:
             # 使用 BFS 进行双向搜索
             path = nx.bidirectional_shortest_path(self.G, source=src, target=snk)
-            edges = [(path[i], path[i + 1]) for i in range(len(path) - 1)]
+            # edges = [(path[i], path[i + 1]) for i in range(len(path) - 1)]
+            edges = [(min(path[i], path[i + 1]), max(path[i], path[i + 1])) for i in range(len(path) - 1)]
             return {'path': path, 'edges': edges}
         except nx.NetworkXNoPath:
             print(f"No local path found from {src} to {snk}")
@@ -89,7 +91,9 @@ class PathCalculator:
             try:
                 # 使用 Dijkstra 算法计算备用路径
                 backup_path = nx.shortest_path(self.G, source=src, target=snk, weight='weight')
-                backup_edges = [(backup_path[i], backup_path[i + 1]) for i in range(len(backup_path) - 1)]
+                # backup_edges = [(backup_path[i], backup_path[i + 1]) for i in range(len(backup_path) - 1)]
+                backup_edges = [(min(backup_path[i], backup_path[i + 1]), max(backup_path[i], backup_path[i + 1])) for i in range(len(backup_path) - 1)]
+
                 self.backup_paths[service_index][edge] = {'path': backup_path, 'edges': backup_edges}
             except nx.NetworkXNoPath:
                 print(f"No backup path found for service {service_index} when edge {edge} fails.")
@@ -114,8 +118,8 @@ class PathCalculator:
         edge = (min(edge[0], edge[1]), max(edge[0], edge[1]))
 
         # 打印 Edge Service Matrix 到文件
-        with open('1.txt', 'a') as file:
-            file.write(f"Edge Service Matrix: {self.edge_service_matrix}\n")
+        # with open('1.txt', 'a') as file:
+        #     file.write(f"Edge Service Matrix: {self.edge_service_matrix}\n")
 
         # Step 1: 查找当前路径经过故障边的服务
         affected_services_current = self.edge_service_matrix.get(edge, [])
@@ -148,8 +152,8 @@ class PathCalculator:
             if edge in self.backup_paths[service_index]:
                 print(f"Service {service_index}'s backup path contains the failed edge: {edge}")
                 # 覆盖失效的备用路径并更新
-                self.update_service_backup_path_for_edge(service_index, edge)
-                updated_paths_count += 1
+                if self.update_service_backup_path_for_edge(service_index, edge):
+                    updated_paths_count += 1
 
         # 记录结束时间
         end_time = time.time()
@@ -182,7 +186,7 @@ class PathCalculator:
             if service_index not in self.backup_paths:
                 self.backup_paths[service_index] = {}
             self.backup_paths[service_index][edge] = local_path
-            return
+            return True
 
         # Step 2: 检查缓存池中的备用路径
         cached_path = self.get_from_cache(service_index, edge)
@@ -191,19 +195,23 @@ class PathCalculator:
             if service_index not in self.backup_paths:
                 self.backup_paths[service_index] = {}
             self.backup_paths[service_index][edge] = cached_path
-            return
+            return True
 
         # Step 3: 使用 Dijkstra 重新计算备用路径
         try:
             backup_path = nx.shortest_path(self.G, source=src, target=snk, weight='weight')
-            backup_edges = [(backup_path[i], backup_path[i + 1]) for i in range(len(backup_path) - 1)]
+            # backup_edges = [(backup_path[i], backup_path[i + 1]) for i in range(len(backup_path) - 1)]
+            backup_edges = [(min(backup_path[i], backup_path[i + 1]), max(backup_path[i], backup_path[i + 1])) for i in range(len(backup_path) - 1)]
+
             if service_index not in self.backup_paths:
                 self.backup_paths[service_index] = {}
             self.backup_paths[service_index][edge] = {'path': backup_path, 'edges': backup_edges}
             print(f"Recomputed backup path for service {service_index} and edge {edge} using Dijkstra.")
+            return True
         except nx.NetworkXNoPath:
             print(f"Failed to find a new backup path for service {service_index} and edge {edge}.")
-
+            return False
+        
     def update_service_backup_path(self, service_index):
         """
         为业务的每条边生成备用路径，更新业务的备用路径矩阵。
@@ -251,7 +259,9 @@ class PathCalculator:
             # Step 4: 使用 Dijkstra 重新计算备用路径
             try:
                 backup_path = nx.shortest_path(self.G, source=src, target=snk, weight='weight')
-                backup_edges = [(backup_path[i], backup_path[i + 1]) for i in range(len(backup_path) - 1)]
+                # backup_edges = [(backup_path[i], backup_path[i + 1]) for i in range(len(backup_path) - 1)]
+                backup_edges = [(min(backup_path[i], backup_path[i + 1]), max(backup_path[i], backup_path[i + 1])) for i in range(len(backup_path) - 1)]
+
                 if service_index not in self.backup_paths:
                     self.backup_paths[service_index] = {}
                 self.backup_paths[service_index][edge] = {'path': backup_path, 'edges': backup_edges}
@@ -292,7 +302,9 @@ class PathCalculator:
         # 使用 Dijkstra 重新计算路径
         try:
             new_path = nx.shortest_path(self.G, source=src, target=snk, weight='weight')
-            new_edges = [(new_path[i], new_path[i + 1]) for i in range(len(new_path) - 1)]
+            # new_edges = [(new_path[i], new_path[i + 1]) for i in range(len(new_path) - 1)]
+            new_edges = [(min(new_path[i], new_path[i + 1]), max(new_path[i], new_path[i + 1])) for i in range(len(new_path) - 1)]
+
             self.paths_in_use[service_index] = {'path': new_path, 'edges': new_edges}
             print(f"Switching service {service_index} to newly computed path using Dijkstra.")
             return True  # 返回 True 表示更新成功
