@@ -1,7 +1,9 @@
+#src/failure_simulation.py
 import json
 import csv
 from path_calculator import PathCalculator
 from simulator import NetworkSimulator
+
 import pickle
 def tuple_to_string_key(data):
     """
@@ -100,19 +102,10 @@ def failure_simulation():
     path_calculator.backup_paths = data['backup_paths']
     path_calculator.edge_service_matrix = data['edge_service_matrix']
     
-    # with open('1.txt', 'a') as file:
-    #     file.write(f"Edge Service Matrix: {path_calculator.edge_service_matrix}")
-
-    
     simulator = NetworkSimulator(path_calculator)
 
     failed_edges = data.get('failed_edges', [])
-    recovered_edges = data.get('recovered_edges', [])
-
-    with open('results/current_edges.txt', 'w') as file:
-        file.write(f"Current edges in graph: {list(path_calculator.G.edges)}\n")
-        
-
+    
     # 用户输入模拟
     while True:
         action = input("Enter 'f' to simulate failure, 'r' to recover a failed edge, or 'q' to quit: ").strip().lower()
@@ -140,8 +133,8 @@ def failure_simulation():
             print(f"Attempting to recover edge: {edge}")
             
             if edge in failed_edges:
-                failed_edges.remove(edge)
-                recovered_edges.append(edge)
+                simulator.simulate_recovery(edge)
+                failed_edges.remove(edge)  # 仅从 failed_edges 中移除该边
                 print(f"Simulated recovery on edge: {edge}")
             else:
                 print(f"Edge {edge} is not currently in the failed state.")
@@ -149,8 +142,9 @@ def failure_simulation():
         elif action == 'q':
             break
 
-        save_simulation_data(path_calculator, failed_edges, recovered_edges, 'results/simulation_state.json')
-        save_simulation_to_csv(path_calculator, failed_edges, recovered_edges,
+        # 保存模拟状态
+        save_simulation_data(path_calculator, failed_edges, [], 'results/simulation_state.json')
+        save_simulation_to_csv(path_calculator, failed_edges, [],
                                paths_csv='results/simulation_paths.csv',
                                backup_csv='results/simulation_backup_paths.csv',
                                failed_csv='results/simulation_failed_edges.csv')
