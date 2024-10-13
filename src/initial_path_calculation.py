@@ -20,8 +20,10 @@ def tuple_to_string_key(data):
 
 def save_initial_data(path_calculator, file_name):
     data = {
-        # 'paths_in_use': tuple_to_string_key(path_calculator.paths_in_use),
-        # 'backup_paths': tuple_to_string_key(path_calculator.backup_paths),
+        'paths_in_use': tuple_to_string_key(path_calculator.paths_in_use),
+        'backup_paths': tuple_to_string_key(path_calculator.backup_paths),
+        # 'paths_in_use': path_calculator.paths_in_use,  # 业务索引保持 int
+        # 'backup_paths': path_calculator.backup_paths,  # 业务索引保持 int
         'edge_service_matrix': tuple_to_string_key(path_calculator.edge_service_matrix)
     }
     with open(file_name, 'w') as file:

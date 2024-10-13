@@ -137,7 +137,8 @@ class PathCalculator:
         for service_index, backup_paths in self.backup_paths.items():
             for backup_edge in backup_paths.keys():
                 # 将备用路径中的边进行规范化
-                backup_edge = eval(backup_edge)  # 将字符串形式的边转换为 tuple
+                if isinstance(backup_edge, str):
+                    backup_edge = eval(backup_edge)  # 将字符串形式的边转换为 tuple
                 backup_edge = (min(backup_edge[0], backup_edge[1]), max(backup_edge[0], backup_edge[1]))
                 if edge == backup_edge:
                     affected_services_backup.append(service_index)

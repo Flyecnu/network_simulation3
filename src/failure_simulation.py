@@ -43,6 +43,10 @@ def load_initial_data(file_name):
 
     data['paths_in_use'] = string_key_to_tuple(data['paths_in_use'])
     data['backup_paths'] = string_key_to_tuple(data['backup_paths'])
+    
+    data['paths_in_use'] = {int(k): v for k, v in data['paths_in_use'].items()}  # 保持业务索引为 int
+    data['backup_paths'] = {int(k): v for k, v in data['backup_paths'].items()}  # 保持业务索引为 int
+    
     data['edge_service_matrix'] = string_key_to_tuple(data['edge_service_matrix'])
     
     # 使用 get 方法，防止文件中没有 failed_edges 键时报错
@@ -52,9 +56,13 @@ def load_initial_data(file_name):
     # 打开文件，以写入模式 ('w') 打开
     with open('paths_in_use_output.txt', 'w') as file:
         # 写入文件
-        # file.write(f"Loaded paths_in_use: {list(data['paths_in_use'].keys())}\n")
         file.write(f"Loaded paths_in_use: {data['paths_in_use']}\n")
-
+    with open('backup_paths_output.txt', 'w') as file:
+        # 写入文件
+        file.write(f"Loaded paths_in_use: {data['backup_paths']}\n")
+    with open('edge_service_matrix_output.txt', 'w') as file:
+        # 写入文件
+        file.write(f"Loaded edge_service_matrix: {data['edge_service_matrix']}\n")
     return data
 
 
