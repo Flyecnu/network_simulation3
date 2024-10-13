@@ -49,6 +49,12 @@ def load_initial_data(file_name):
     data['failed_edges'] = [eval(edge) for edge in data.get('failed_edges', [])]  # 将字符串转换回元组
     data['recovered_edges'] = [eval(edge) for edge in data.get('recovered_edges', [])]  # 同样转换
 
+    # 打开文件，以写入模式 ('w') 打开
+    with open('paths_in_use_output.txt', 'w') as file:
+        # 写入文件
+        # file.write(f"Loaded paths_in_use: {list(data['paths_in_use'].keys())}\n")
+        file.write(f"Loaded paths_in_use: {data['paths_in_use']}\n")
+
     return data
 
 
@@ -101,6 +107,12 @@ def failure_simulation():
     path_calculator.paths_in_use = data['paths_in_use']
     path_calculator.backup_paths = data['backup_paths']
     path_calculator.edge_service_matrix = data['edge_service_matrix']
+    
+    with open('paths_in_use_output2222.txt', 'w') as file:
+    # 写入文件
+    # file.write(f"Loaded paths_in_use: {list(data['paths_in_use'].keys())}\n")
+        file.write(f"Loaded paths_in_use: {path_calculator.paths_in_use}\n")
+    
     
     simulator = NetworkSimulator(path_calculator)
 
